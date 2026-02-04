@@ -6,3 +6,8 @@ dependencies = [
     "pulumi>=3.0.0,<4.0.0",
     "pulumi-hcloud>=1.32.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.0",
+]
