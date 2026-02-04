@@ -10,4 +10,12 @@ dependencies = [
 [dependency-groups]
 dev = [
     "ruff>=0.15.0",
+    "ty>=0.0.14",
 ]
+
+[tool.ty]
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.src]
+exclude = [".venv/**"]
