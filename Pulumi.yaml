@@ -1,0 +1,10 @@
+name: pulumi-hetzner-k8s-demo
+description: Creating a HA k8s instance on hetzner for demonistration purposes
+runtime:
+  name: python
+  options:
+    toolchain: uv
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: python
