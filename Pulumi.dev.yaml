@@ -1,0 +1,3 @@
+config:
+  hcloud:token:
+    secure: AAABAD22BJSfo9H9gUSHFLpOINcoDRfG4tsM5q/DKZExlcmEKjr8wVxPEViJHRABubEdwoATyPsT2rpKT6+blaWqd0C/TZzt9grZapiLcDoI+DdT98je4x6qFRExm2uE
