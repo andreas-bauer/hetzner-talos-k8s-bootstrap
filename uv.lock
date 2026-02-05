@@ -193,7 +193,7 @@ wheels = [
 [[package]]
 name = "pulumi-hetzner-k8s-demo"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "pulumi" },
     { name = "pulumi-command" },
