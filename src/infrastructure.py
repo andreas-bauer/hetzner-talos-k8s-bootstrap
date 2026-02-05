@@ -6,7 +6,7 @@ import pulumi
 import pulumi_hcloud as hcloud
 from pulumi_command import local
 
-from config import ClusterConfig
+from config import ClusterConfig, ControlPlaneNodeSpec, NodeSpec, WorkerNodeSpec
 
 
 @dataclass
@@ -15,17 +15,17 @@ class InfrastructureOutputs:
 
     Attributes:
         ssh_key: Hetzner SSH key resource
-        control_plane_server: Hetzner control plane server resource
-        worker_servers: List of Hetzner worker server resources
-        control_plane_wait: Command that waits for control plane Talos API readiness
-        worker_waits: List of commands that wait for worker Talos API readiness
+        node_servers: Map of node name to server resource
+        node_waits: Map of node name to wait command
+        control_plane_nodes: List of control plane node specifications
+        worker_nodes: List of worker node specifications
     """
 
     ssh_key: hcloud.SshKey
-    control_plane_server: hcloud.Server
-    worker_servers: list[hcloud.Server]
-    control_plane_wait: local.Command
-    worker_waits: list[local.Command]
+    node_servers: dict[str, hcloud.Server]
+    node_waits: dict[str, local.Command]
+    control_plane_nodes: list[ControlPlaneNodeSpec]
+    worker_nodes: list[WorkerNodeSpec]
 
 
 def create_ssh_key(ssh_public_key: str) -> hcloud.SshKey:
@@ -44,53 +44,26 @@ def create_ssh_key(ssh_public_key: str) -> hcloud.SshKey:
     )
 
 
-def create_control_plane_server(
-    config: ClusterConfig, ssh_key: hcloud.SshKey
+def create_server(
+    node_spec: NodeSpec,
+    ssh_key: hcloud.SshKey,
+    config: ClusterConfig,
 ) -> hcloud.Server:
-    """Provision Hetzner control plane server with Talos ISO.
+    """Provision Hetzner server with Talos ISO.
 
     Args:
-        config: Cluster configuration
+        node_spec: Node specification with server configuration
         ssh_key: Hetzner SSH key resource
+        config: Cluster configuration
 
     Returns:
-        Hetzner control plane server resource
+        Hetzner server resource
     """
     return hcloud.Server(
-        "talos-control-plane-server",
-        name="pulumi-talos-k8s-cp-0",
-        server_type=config.controlplane_server_type,
-        location=config.location,
-        ssh_keys=[ssh_key.id],
-        image="ubuntu-24.04",  # Required by Hetzner, but will boot from ISO
-        iso=config.talos_iso_id,
-        public_nets=[
-            hcloud.ServerPublicNetArgs(
-                ipv4_enabled=True,
-                ipv6_enabled=True,
-            )
-        ],
-    )
-
-
-def create_worker_server(
-    config: ClusterConfig, ssh_key: hcloud.SshKey, index: int
-) -> hcloud.Server:
-    """Provision Hetzner worker server with Talos ISO.
-
-    Args:
-        config: Cluster configuration
-        ssh_key: Hetzner SSH key resource
-        index: Worker node index (0-based)
-
-    Returns:
-        Hetzner worker server resource
-    """
-    return hcloud.Server(
-        f"talos-worker-server-{index}",
-        name=f"pulumi-talos-k8s-worker-{index}",
-        server_type=config.worker_server_type,
-        location=config.location,
+        f"talos-{node_spec.name}",
+        name=f"pulumi-talos-k8s-{node_spec.name}",
+        server_type=node_spec.server_type,
+        location=node_spec.location,
         ssh_keys=[ssh_key.id],
         image="ubuntu-24.04",  # Required by Hetzner, but will boot from ISO
         iso=config.talos_iso_id,
@@ -139,25 +112,22 @@ def provision_infrastructure(
     """
     ssh_key = create_ssh_key(ssh_public_key)
 
-    control_plane_server = create_control_plane_server(config, ssh_key)
-    control_plane_wait = wait_for_talos_api(
-        control_plane_server, config.talos_api_port, "wait-for-control-plane"
-    )
+    node_servers = {}
+    node_waits = {}
 
-    worker_servers = []
-    worker_waits = []
-    for i in range(config.worker_node_count):
-        worker = create_worker_server(config, ssh_key, i)
-        worker_servers.append(worker)
-        worker_wait = wait_for_talos_api(
-            worker, config.talos_api_port, f"wait-for-worker-{i}"
+    for node_spec in config.all_nodes:
+        server = create_server(node_spec, ssh_key, config)
+        node_servers[node_spec.name] = server
+
+        wait_cmd = wait_for_talos_api(
+            server, config.talos_api_port, f"wait-for-{node_spec.name}"
         )
-        worker_waits.append(worker_wait)
+        node_waits[node_spec.name] = wait_cmd
 
     return InfrastructureOutputs(
         ssh_key=ssh_key,
-        control_plane_server=control_plane_server,
-        worker_servers=worker_servers,
-        control_plane_wait=control_plane_wait,
-        worker_waits=worker_waits,
+        node_servers=node_servers,
+        node_waits=node_waits,
+        control_plane_nodes=config.control_plane_nodes,
+        worker_nodes=config.worker_nodes,
     )

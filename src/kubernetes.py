@@ -103,7 +103,6 @@ def setup_kubernetes_access(
     """
     kubeconfig = retrieve_kubeconfig(secrets, control_plane_ip, bootstrap)
 
-    # Talosconfig needs all node IPs
     all_node_ips = [control_plane_ip] + worker_ips
     talosconfig = generate_talosconfig(config, secrets, all_node_ips)
 

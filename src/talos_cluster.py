@@ -7,7 +7,12 @@ import pulumi
 import pulumiverse_talos as talos
 from pulumi_command import local
 
-from config import ClusterConfig
+from config import (
+    BaseNodeSpec,
+    ClusterConfig,
+    ControlPlaneNodeSpec,
+    WorkerNodeSpec,
+)
 
 
 @dataclass
@@ -40,17 +45,17 @@ def generate_talos_secrets() -> talos.machine.Secrets:
     return talos.machine.Secrets("talos-secrets")
 
 
-def create_machine_config_patches(
-    config: ClusterConfig, machine_type: str
-) -> list[str]:
-    """Create machine configuration patches.
+def _create_base_machine_patch(
+    config: ClusterConfig, node_spec: BaseNodeSpec
+) -> dict:
+    """Create base machine configuration patch.
 
     Args:
         config: Cluster configuration
-        machine_type: Type of machine ('controlplane' or 'worker')
+        node_spec: Node specification with labels and taints
 
     Returns:
-        List of JSON configuration patches
+        Base machine configuration patch dict
     """
     patch = {
         "machine": {
@@ -63,12 +68,51 @@ def create_machine_config_patches(
         },
     }
 
-    # Only control plane needs allowSchedulingOnControlPlanes
-    if machine_type == "controlplane":
-        patch["cluster"] = {
-            "allowSchedulingOnControlPlanes": True,
-        }
+    if node_spec.labels:
+        patch["machine"]["kubelet"] = {"nodeLabels": node_spec.labels}
 
+    if node_spec.taints:
+        if "kubelet" not in patch["machine"]:
+            patch["machine"]["kubelet"] = {}
+        patch["machine"]["kubelet"]["nodeTaints"] = node_spec.taints
+
+    return patch
+
+
+def create_control_plane_config_patches(
+    config: ClusterConfig, node_spec: ControlPlaneNodeSpec
+) -> list[str]:
+    """Create machine configuration patches for control plane.
+
+    Args:
+        config: Cluster configuration
+        node_spec: Control plane node specification
+
+    Returns:
+        List of JSON patch strings
+    """
+    patch = _create_base_machine_patch(config, node_spec)
+
+    patch["cluster"] = {
+        "allowSchedulingOnControlPlanes": node_spec.allow_scheduling,
+    }
+
+    return [json.dumps(patch)]
+
+
+def create_worker_config_patches(
+    config: ClusterConfig, node_spec: WorkerNodeSpec
+) -> list[str]:
+    """Create machine configuration patches for worker.
+
+    Args:
+        config: Cluster configuration
+        node_spec: Worker node specification
+
+    Returns:
+        List of JSON patch strings
+    """
+    patch = _create_base_machine_patch(config, node_spec)
     return [json.dumps(patch)]
 
 
@@ -87,6 +131,7 @@ def _build_cluster_endpoint(ip: str, port: int) -> str:
 
 def generate_control_plane_configuration(
     config: ClusterConfig,
+    cp_node_spec: ControlPlaneNodeSpec,
     secrets: talos.machine.Secrets,
     control_plane_ip: pulumi.Output[str],
 ) -> pulumi.Output[str]:
@@ -94,13 +139,14 @@ def generate_control_plane_configuration(
 
     Args:
         config: Cluster configuration
+        cp_node_spec: Control plane node specification
         secrets: Talos machine secrets
         control_plane_ip: Control plane IP address
 
     Returns:
         Machine configuration as Pulumi Output
     """
-    config_patches = create_machine_config_patches(config, "controlplane")
+    config_patches = create_control_plane_config_patches(config, cp_node_spec)
 
     cluster_endpoint: pulumi.Output[str] = control_plane_ip.apply( # ty: ignore[missing-argument]
         lambda ip: _build_cluster_endpoint(ip, config.kubernetes_api_port) # ty: ignore[invalid-argument-type]
@@ -124,22 +170,22 @@ def generate_control_plane_configuration(
 
 def generate_worker_configuration(
     config: ClusterConfig,
+    worker_spec: WorkerNodeSpec,
     secrets: talos.machine.Secrets,
     control_plane_ip: pulumi.Output[str],
-    worker_index: int,
 ) -> pulumi.Output[str]:
     """Generate Talos worker machine configuration.
 
     Args:
         config: Cluster configuration
+        worker_spec: Worker node specification
         secrets: Talos machine secrets
         control_plane_ip: Control plane IP address
-        worker_index: Worker node index (0-based)
 
     Returns:
         Machine configuration as Pulumi Output
     """
-    config_patches = create_machine_config_patches(config, "worker")
+    config_patches = create_worker_config_patches(config, worker_spec)
 
     # Workers connect to control plane for cluster endpoint
     cluster_endpoint: pulumi.Output[str] = control_plane_ip.apply( # ty: ignore[missing-argument]
@@ -219,6 +265,8 @@ def setup_talos_cluster(
     worker_ips: list[pulumi.Output[str]],
     control_plane_wait: local.Command,
     worker_waits: list[local.Command],
+    cp_node_spec: ControlPlaneNodeSpec,
+    worker_specs: list[WorkerNodeSpec],
 ) -> TalosOutputs:
     """Set up complete Talos cluster.
 
@@ -228,6 +276,8 @@ def setup_talos_cluster(
         worker_ips: Worker node IP addresses
         control_plane_wait: Resource to wait for control plane before setup
         worker_waits: Resources to wait for workers before setup
+        cp_node_spec: Control plane node specification
+        worker_specs: Worker node specifications
 
     Returns:
         TalosOutputs with all Talos resources
@@ -235,7 +285,7 @@ def setup_talos_cluster(
     secrets = generate_talos_secrets()
 
     control_plane_config = generate_control_plane_configuration(
-        config, secrets, control_plane_ip
+        config, cp_node_spec, secrets, control_plane_ip
     )
     control_plane_apply = apply_configuration_to_node(
         secrets,
@@ -247,9 +297,9 @@ def setup_talos_cluster(
 
     worker_configs = []
     worker_applies = []
-    for i, (worker_ip, worker_wait) in enumerate(zip(worker_ips, worker_waits)):
+    for worker_spec, worker_ip, worker_wait in zip(worker_specs, worker_ips, worker_waits):
         worker_config = generate_worker_configuration(
-            config, secrets, control_plane_ip, i
+            config, worker_spec, secrets, control_plane_ip
         )
         worker_configs.append(worker_config)
 
@@ -258,7 +308,7 @@ def setup_talos_cluster(
             worker_config,
             worker_ip,
             worker_wait,
-            f"talos-config-worker-{i}",
+            f"talos-config-{worker_spec.name}",
         )
         worker_applies.append(worker_apply)
 

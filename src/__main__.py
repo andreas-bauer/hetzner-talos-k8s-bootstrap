@@ -2,7 +2,12 @@
 
 import pulumi
 
-from config import get_cluster_config, load_ssh_public_key
+from config import (
+    ControlPlaneNodeSpec,
+    WorkerNodeSpec,
+    get_cluster_config,
+    load_ssh_public_key,
+)
 from infrastructure import provision_infrastructure
 from kubernetes import setup_kubernetes_access
 from local_files import save_cluster_configs
@@ -18,7 +23,29 @@ def _build_nodes_list(ips: list[str]) -> str:
     Returns:
         Comma-separated IP list
     """
-    return ','.join(ips)
+    return ",".join(ips)
+
+
+def _format_node_spec(node_spec: ControlPlaneNodeSpec | WorkerNodeSpec) -> dict:
+    """Format node spec for export.
+
+    Args:
+        node_spec: Node specification to format
+
+    Returns:
+        Dict representation of node spec
+    """
+    spec = {
+        "name": f"pulumi-talos-k8s-{node_spec.name}",
+        "type": "controlplane" if isinstance(node_spec, ControlPlaneNodeSpec) else "worker",
+        "server_type": node_spec.server_type,
+        "location": node_spec.location,
+        "labels": node_spec.labels or {},
+        "taints": node_spec.taints or [],
+    }
+    if isinstance(node_spec, ControlPlaneNodeSpec):
+        spec["allow_scheduling"] = node_spec.allow_scheduling
+    return spec
 
 
 def main() -> None:
@@ -28,15 +55,24 @@ def main() -> None:
 
     infra = provision_infrastructure(config, ssh_public_key)
 
-    control_plane_ip = infra.control_plane_server.ipv4_address
-    worker_ips = [worker.ipv4_address for worker in infra.worker_servers]
+    cp_nodes = infra.control_plane_nodes
+    control_plane_ip = infra.node_servers[cp_nodes[0].name].ipv4_address
+
+    worker_ips = [
+        infra.node_servers[w.name].ipv4_address for w in infra.worker_nodes
+    ]
+
+    control_plane_wait = infra.node_waits[cp_nodes[0].name]
+    worker_waits = [infra.node_waits[w.name] for w in infra.worker_nodes]
 
     talos = setup_talos_cluster(
         config,
         control_plane_ip,
         worker_ips,
-        infra.control_plane_wait,
-        infra.worker_waits,
+        control_plane_wait,
+        worker_waits,
+        cp_nodes[0],
+        infra.worker_nodes,
     )
 
     k8s_access = setup_kubernetes_access(
@@ -45,12 +81,17 @@ def main() -> None:
 
     save_cluster_configs(config, k8s_access, talos.secrets)
 
-    pulumi.export("control_plane_server_id", infra.control_plane_server.id)
+    pulumi.export(
+        "control_plane_server_id", infra.node_servers[cp_nodes[0].name].id
+    )
     pulumi.export("control_plane_ip", control_plane_ip)
-    pulumi.export("worker_count", config.worker_node_count)
+    pulumi.export("worker_count", len(infra.worker_nodes))
 
-    if config.worker_node_count > 0:
-        pulumi.export("worker_server_ids", [w.id for w in infra.worker_servers])
+    if len(infra.worker_nodes) > 0:
+        pulumi.export(
+            "worker_server_ids",
+            [infra.node_servers[w.name].id for w in infra.worker_nodes],
+        )
         pulumi.export("worker_ips", worker_ips)
 
     pulumi.export(
@@ -65,7 +106,11 @@ def main() -> None:
     all_ips = [control_plane_ip] + worker_ips
     pulumi.export(
         "all_nodes",
-        pulumi.Output.all(*all_ips).apply(_build_nodes_list), # ty: ignore[missing-argument, invalid-argument-type]
+        pulumi.Output.all(*all_ips).apply(_build_nodes_list),  # ty: ignore[missing-argument, invalid-argument-type]
+    )
+
+    pulumi.export(
+        "node_specs", [_format_node_spec(node) for node in config.all_nodes]
     )
 
 
