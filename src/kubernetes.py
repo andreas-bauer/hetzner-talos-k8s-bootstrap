@@ -46,20 +46,27 @@ def retrieve_kubeconfig(
 def generate_talosconfig(
     config: ClusterConfig,
     secrets: talos.machine.Secrets,
-    server_ip: pulumi.Output[str],
+    all_node_ips: list[pulumi.Output[str]],
 ) -> pulumi.Output[str]:
     """Generate Talos client configuration.
 
     Args:
         config: Cluster configuration
         secrets: Talos machine secrets
-        server_ip: Server IP address
+        all_node_ips: All node IP addresses (control plane + workers)
 
     Returns:
         Talosconfig as Pulumi Output
     """
-    nodes: pulumi.Output[list[str]] = server_ip.apply(lambda ip: [ip]) # ty: ignore[invalid-argument-type, missing-argument]
-    endpoints: pulumi.Output[list[str]] = server_ip.apply(lambda ip: [ip]) # ty: ignore[invalid-argument-type, missing-argument]
+    def aggregate_ips(*ips: str) -> list[str]:
+        return list(ips)
+
+    nodes: pulumi.Output[list[str]] = pulumi.Output.all(*all_node_ips).apply( # ty: ignore[missing-argument]
+        lambda ips: aggregate_ips(*ips) # ty: ignore[invalid-argument-type]
+    )
+    # Endpoints should only be control plane nodes (first IP in list)
+    # to avoid "no request forwarding" errors
+    endpoints: pulumi.Output[list[str]] = all_node_ips[0].apply(lambda ip: [ip]) # ty: ignore[missing-argument, invalid-argument-type]
 
     talosconfig = talos.client.get_configuration_output(
         cluster_name=config.cluster_name,
@@ -78,7 +85,8 @@ def generate_talosconfig(
 def setup_kubernetes_access(
     config: ClusterConfig,
     secrets: talos.machine.Secrets,
-    server_ip: pulumi.Output[str],
+    control_plane_ip: pulumi.Output[str],
+    worker_ips: list[pulumi.Output[str]],
     bootstrap: talos.machine.Bootstrap,
 ) -> KubernetesAccessOutputs:
     """Set up Kubernetes cluster access.
@@ -86,14 +94,18 @@ def setup_kubernetes_access(
     Args:
         config: Cluster configuration
         secrets: Talos machine secrets
-        server_ip: Server IP address
+        control_plane_ip: Control plane IP address
+        worker_ips: Worker node IP addresses
         bootstrap: Bootstrap resource to depend on
 
     Returns:
         KubernetesAccessOutputs with kubeconfig and talosconfig
     """
-    kubeconfig = retrieve_kubeconfig(secrets, server_ip, bootstrap)
-    talosconfig = generate_talosconfig(config, secrets, server_ip)
+    kubeconfig = retrieve_kubeconfig(secrets, control_plane_ip, bootstrap)
+
+    # Talosconfig needs all node IPs
+    all_node_ips = [control_plane_ip] + worker_ips
+    talosconfig = generate_talosconfig(config, secrets, all_node_ips)
 
     return KubernetesAccessOutputs(
         kubeconfig=kubeconfig,

@@ -9,6 +9,18 @@ from local_files import save_cluster_configs
 from talos_cluster import setup_talos_cluster
 
 
+def _build_nodes_list(ips: list[str]) -> str:
+    """Build comma-separated list of node IPs.
+
+    Args:
+        ips: List of node IP addresses
+
+    Returns:
+        Comma-separated IP list
+    """
+    return ','.join(ips)
+
+
 def main() -> None:
     """Deploy Talos Kubernetes cluster on Hetzner Cloud."""
     config = get_cluster_config()
@@ -16,27 +28,44 @@ def main() -> None:
 
     infra = provision_infrastructure(config, ssh_public_key)
 
-    talos = setup_talos_cluster(config, infra.server.ipv4_address, infra.wait_command)
+    control_plane_ip = infra.control_plane_server.ipv4_address
+    worker_ips = [worker.ipv4_address for worker in infra.worker_servers]
+
+    talos = setup_talos_cluster(
+        config,
+        control_plane_ip,
+        worker_ips,
+        infra.control_plane_wait,
+        infra.worker_waits,
+    )
 
     k8s_access = setup_kubernetes_access(
-        config, talos.secrets, infra.server.ipv4_address, talos.bootstrap
+        config, talos.secrets, control_plane_ip, worker_ips, talos.bootstrap
     )
 
     save_cluster_configs(config, k8s_access, talos.secrets)
 
-    pulumi.export("server_id", infra.server.id)
-    pulumi.export("server_ip", infra.server.ipv4_address)
+    pulumi.export("control_plane_server_id", infra.control_plane_server.id)
+    pulumi.export("control_plane_ip", control_plane_ip)
+    pulumi.export("worker_count", config.worker_node_count)
+
+    if config.worker_node_count > 0:
+        pulumi.export("worker_server_ids", [w.id for w in infra.worker_servers])
+        pulumi.export("worker_ips", worker_ips)
+
     pulumi.export(
         "cluster_endpoint",
-        infra.server.ipv4_address.apply(
+        control_plane_ip.apply(
             lambda ip: f"https://{ip}:{config.kubernetes_api_port}"
         ),
     )
     pulumi.export("talosconfig", k8s_access.talosconfig)
     pulumi.export("kubeconfig", k8s_access.kubeconfig.kubeconfig_raw)
+
+    all_ips = [control_plane_ip] + worker_ips
     pulumi.export(
-        "talosctl_command",
-        infra.server.ipv4_address.apply(lambda ip: f"talosctl --nodes {ip} health"),
+        "all_nodes",
+        pulumi.Output.all(*all_ips).apply(_build_nodes_list), # ty: ignore[missing-argument, invalid-argument-type]
     )
 
 

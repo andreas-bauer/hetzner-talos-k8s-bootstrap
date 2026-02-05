@@ -10,7 +10,9 @@ class ClusterConfig:
 
     Attributes:
         cluster_name: Name of the Kubernetes cluster
-        server_type: Hetzner server type (e.g., 'cpx22')
+        controlplane_server_type: Hetzner server type for control plane (e.g., 'cpx22')
+        worker_node_count: Number of worker nodes to create (default: 0)
+        worker_server_type: Hetzner server type for workers (e.g., 'cpx22')
         location: Hetzner datacenter location (e.g., 'nbg1')
         talos_iso_id: Hetzner ISO ID for Talos Linux
         talos_version: Talos Linux version
@@ -24,7 +26,9 @@ class ClusterConfig:
     """
 
     cluster_name: str = "hetzner-k8s"
-    server_type: str = "cpx22"
+    controlplane_server_type: str = "cpx22"
+    worker_node_count: int = 2
+    worker_server_type: str = "cpx22"
     location: str = "nbg1"
     talos_iso_id: str = (
         "122630"  # Talos Linux 1.11.2 (x86/amd64 with Hetzner + qemu-guest-agent)

@@ -9,7 +9,7 @@ format:
 	uv run ruff format
 
 health:
-	@talosctl --nodes $$(pulumi stack output server_ip) health
+	@talosctl --nodes $$(pulumi stack output control_plane_ip) --endpoints $$(pulumi stack output control_plane_ip) health
 
 kubeconfig:
 	@pulumi stack output kubeconfig --show-secrets > ~/.kube/config-talos
@@ -18,4 +18,4 @@ kubeconfig:
 	@echo "Run: export KUBECONFIG=~/.kube/config-talos"
 
 talos-dashboard:
-	@talosctl --nodes $$(pulumi stack output server_ip) dashboard
+	@talosctl --nodes $$(pulumi stack output control_plane_ip) --endpoints $$(pulumi stack output control_plane_ip) dashboard
