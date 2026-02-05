@@ -76,7 +76,9 @@ def create_server(
     )
 
 
-def wait_for_talos_api(server: hcloud.Server, talos_api_port: int, resource_name: str) -> local.Command:
+def wait_for_talos_api(
+    server: hcloud.Server, talos_api_port: int, resource_name: str
+) -> local.Command:
     """Wait for Talos API to become ready.
 
     Args:

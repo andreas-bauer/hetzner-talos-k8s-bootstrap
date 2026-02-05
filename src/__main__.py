@@ -37,7 +37,9 @@ def _format_node_spec(node_spec: ControlPlaneNodeSpec | WorkerNodeSpec) -> dict:
     """
     spec = {
         "name": f"pulumi-talos-k8s-{node_spec.name}",
-        "type": "controlplane" if isinstance(node_spec, ControlPlaneNodeSpec) else "worker",
+        "type": "controlplane"
+        if isinstance(node_spec, ControlPlaneNodeSpec)
+        else "worker",
         "server_type": node_spec.server_type,
         "location": node_spec.location,
         "labels": node_spec.labels or {},
@@ -58,9 +60,7 @@ def main() -> None:
     cp_nodes = infra.control_plane_nodes
     control_plane_ip = infra.node_servers[cp_nodes[0].name].ipv4_address
 
-    worker_ips = [
-        infra.node_servers[w.name].ipv4_address for w in infra.worker_nodes
-    ]
+    worker_ips = [infra.node_servers[w.name].ipv4_address for w in infra.worker_nodes]
 
     control_plane_wait = infra.node_waits[cp_nodes[0].name]
     worker_waits = [infra.node_waits[w.name] for w in infra.worker_nodes]
@@ -81,9 +81,7 @@ def main() -> None:
 
     save_cluster_configs(config, k8s_access, talos.secrets)
 
-    pulumi.export(
-        "control_plane_server_id", infra.node_servers[cp_nodes[0].name].id
-    )
+    pulumi.export("control_plane_server_id", infra.node_servers[cp_nodes[0].name].id)
     pulumi.export("control_plane_ip", control_plane_ip)
     pulumi.export("worker_count", len(infra.worker_nodes))
 
@@ -96,9 +94,7 @@ def main() -> None:
 
     pulumi.export(
         "cluster_endpoint",
-        control_plane_ip.apply(
-            lambda ip: f"https://{ip}:{config.kubernetes_api_port}"
-        ),
+        control_plane_ip.apply(lambda ip: f"https://{ip}:{config.kubernetes_api_port}"),
     )
     pulumi.export("talosconfig", k8s_access.talosconfig)
     pulumi.export("kubeconfig", k8s_access.kubeconfig.kubeconfig_raw)
@@ -109,9 +105,7 @@ def main() -> None:
         pulumi.Output.all(*all_ips).apply(_build_nodes_list),  # ty: ignore[missing-argument, invalid-argument-type]
     )
 
-    pulumi.export(
-        "node_specs", [_format_node_spec(node) for node in config.all_nodes]
-    )
+    pulumi.export("node_specs", [_format_node_spec(node) for node in config.all_nodes])
 
 
 if __name__ == "__main__":

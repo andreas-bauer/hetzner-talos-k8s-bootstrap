@@ -7,6 +7,7 @@ import pulumiverse_talos as talos
 
 from config import ClusterConfig
 
+
 @dataclass
 class KubernetesAccessOutputs:
     """Outputs from Kubernetes access setup.
@@ -58,15 +59,16 @@ def generate_talosconfig(
     Returns:
         Talosconfig as Pulumi Output
     """
+
     def aggregate_ips(*ips: str) -> list[str]:
         return list(ips)
 
-    nodes: pulumi.Output[list[str]] = pulumi.Output.all(*all_node_ips).apply( # ty: ignore[missing-argument]
-        lambda ips: aggregate_ips(*ips) # ty: ignore[invalid-argument-type]
+    nodes: pulumi.Output[list[str]] = pulumi.Output.all(*all_node_ips).apply(  # ty: ignore[missing-argument]
+        lambda ips: aggregate_ips(*ips)  # ty: ignore[invalid-argument-type]
     )
     # Endpoints should only be control plane nodes (first IP in list)
     # to avoid "no request forwarding" errors
-    endpoints: pulumi.Output[list[str]] = all_node_ips[0].apply(lambda ip: [ip]) # ty: ignore[missing-argument, invalid-argument-type]
+    endpoints: pulumi.Output[list[str]] = all_node_ips[0].apply(lambda ip: [ip])  # ty: ignore[missing-argument, invalid-argument-type]
 
     talosconfig = talos.client.get_configuration_output(
         cluster_name=config.cluster_name,

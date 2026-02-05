@@ -69,7 +69,10 @@ class ClusterConfig:
         default_factory=lambda: [ControlPlaneNodeSpec(name="cp-0")]
     )
     worker_nodes: list[WorkerNodeSpec] = field(
-        default_factory=lambda: [WorkerNodeSpec(name="worker-0"), WorkerNodeSpec(name="worker-1")]
+        default_factory=lambda: [
+            WorkerNodeSpec(name="worker-0"),
+            WorkerNodeSpec(name="worker-1"),
+        ]
     )
     talos_iso_id: str = (
         "122630"  # Talos Linux 1.11.2 (x86/amd64 with Hetzner + qemu-guest-agent)

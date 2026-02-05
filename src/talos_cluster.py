@@ -45,9 +45,7 @@ def generate_talos_secrets() -> talos.machine.Secrets:
     return talos.machine.Secrets("talos-secrets")
 
 
-def _create_base_machine_patch(
-    config: ClusterConfig, node_spec: BaseNodeSpec
-) -> dict:
+def _create_base_machine_patch(config: ClusterConfig, node_spec: BaseNodeSpec) -> dict:
     """Create base machine configuration patch.
 
     Args:
@@ -148,8 +146,8 @@ def generate_control_plane_configuration(
     """
     config_patches = create_control_plane_config_patches(config, cp_node_spec)
 
-    cluster_endpoint: pulumi.Output[str] = control_plane_ip.apply( # ty: ignore[missing-argument]
-        lambda ip: _build_cluster_endpoint(ip, config.kubernetes_api_port) # ty: ignore[invalid-argument-type]
+    cluster_endpoint: pulumi.Output[str] = control_plane_ip.apply(  # ty: ignore[missing-argument]
+        lambda ip: _build_cluster_endpoint(ip, config.kubernetes_api_port)  # ty: ignore[invalid-argument-type]
     )
 
     machine_config = talos.machine.get_configuration_output(
@@ -188,8 +186,8 @@ def generate_worker_configuration(
     config_patches = create_worker_config_patches(config, worker_spec)
 
     # Workers connect to control plane for cluster endpoint
-    cluster_endpoint: pulumi.Output[str] = control_plane_ip.apply( # ty: ignore[missing-argument]
-        lambda ip: _build_cluster_endpoint(ip, config.kubernetes_api_port) # ty: ignore[invalid-argument-type]
+    cluster_endpoint: pulumi.Output[str] = control_plane_ip.apply(  # ty: ignore[missing-argument]
+        lambda ip: _build_cluster_endpoint(ip, config.kubernetes_api_port)  # ty: ignore[invalid-argument-type]
     )
 
     machine_config = talos.machine.get_configuration_output(
@@ -297,7 +295,9 @@ def setup_talos_cluster(
 
     worker_configs = []
     worker_applies = []
-    for worker_spec, worker_ip, worker_wait in zip(worker_specs, worker_ips, worker_waits):
+    for worker_spec, worker_ip, worker_wait in zip(
+        worker_specs, worker_ips, worker_waits
+    ):
         worker_config = generate_worker_configuration(
             config, worker_spec, secrets, control_plane_ip
         )
