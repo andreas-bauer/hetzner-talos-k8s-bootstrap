@@ -1,5 +1,6 @@
 """Configuration management for the Talos Kubernetes cluster."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -35,7 +36,7 @@ class BaseNodeSpec:
     name: str
     server_type: str = "cx33"
     location: str = "nbg1"
-    labels: MappingProxyType[str, str] | None = None
+    labels: Mapping[str, str] | None = None
     taints: tuple[TaintSpec, ...] | None = None
 
 
@@ -187,7 +188,7 @@ class ClusterConfigBuilder:
             server_type=server_type,
             location=location,
             allow_scheduling=allow_scheduling,
-            labels=MappingProxyType(labels) if labels is not None else None,
+            labels=MappingProxyType(dict(labels)) if labels is not None else None,
             taints=tuple(taints) if taints is not None else None,
         )
         self._control_plane_nodes.append(node)
@@ -217,7 +218,7 @@ class ClusterConfigBuilder:
             name=name,
             server_type=server_type,
             location=location,
-            labels=MappingProxyType(labels) if labels is not None else None,
+            labels=MappingProxyType(dict(labels)) if labels is not None else None,
             taints=tuple(taints) if taints is not None else None,
         )
         self._worker_nodes.append(node)
