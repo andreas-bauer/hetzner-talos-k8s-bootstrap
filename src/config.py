@@ -2,28 +2,44 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 
 
-@dataclass
+@dataclass(frozen=True)
+class TaintSpec:
+    """Kubernetes node taint specification.
+
+    Attributes:
+        key: Taint key
+        value: Taint value
+        effect: Taint effect (NoSchedule, PreferNoSchedule, or NoExecute)
+    """
+
+    key: str
+    value: str
+    effect: str
+
+
+@dataclass(frozen=True)
 class BaseNodeSpec:
     """Base specification for nodes with common attributes.
 
     Attributes:
         name: Node name (e.g., 'cp-0', 'worker-0', 'worker-1')
-        server_type: Hetzner server type (e.g., 'cp33')
+        server_type: Hetzner server type (e.g., 'cx33')
         location: Hetzner datacenter location (e.g., 'nbg1')
-        labels: Kubernetes node labels
-        taints: Kubernetes node taints (list of dicts with keys: key, value, effect)
+        labels: Kubernetes node labels (immutable mapping)
+        taints: Kubernetes node taints (immutable tuple of TaintSpec)
     """
 
     name: str
-    server_type: str = "cp33"
+    server_type: str = "cx33"
     location: str = "nbg1"
-    labels: dict[str, str] | None = None
-    taints: list[dict[str, str]] | None = None
+    labels: MappingProxyType[str, str] | None = None
+    taints: tuple[TaintSpec, ...] | None = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class ControlPlaneNodeSpec(BaseNodeSpec):
     """Specification for a control plane node.
 
@@ -31,10 +47,10 @@ class ControlPlaneNodeSpec(BaseNodeSpec):
         allow_scheduling: Allow pod scheduling on control plane
     """
 
-    allow_scheduling: bool = True
+    allow_scheduling: bool = False
 
 
-@dataclass
+@dataclass(frozen=True)
 class WorkerNodeSpec(BaseNodeSpec):
     """Specification for a worker node."""
 
@@ -44,13 +60,13 @@ class WorkerNodeSpec(BaseNodeSpec):
 NodeSpec = ControlPlaneNodeSpec | WorkerNodeSpec
 
 
-@dataclass
+@dataclass(frozen=True)
 class ClusterConfig:
     """Configuration for the Talos Kubernetes cluster."""
 
     cluster_name: str
-    control_plane_nodes: list[ControlPlaneNodeSpec]
-    worker_nodes: list[WorkerNodeSpec]
+    control_plane_nodes: tuple[ControlPlaneNodeSpec, ...]
+    worker_nodes: tuple[WorkerNodeSpec, ...]
     talos_iso_id: str
     talos_version: str
     installer_image: str
@@ -62,9 +78,9 @@ class ClusterConfig:
     kubeconfig_dir: Path
 
     @property
-    def all_nodes(self) -> list[NodeSpec]:
+    def all_nodes(self) -> tuple[NodeSpec, ...]:
         """Get all node specifications (control plane + workers)."""
-        return list(self.control_plane_nodes) + list(self.worker_nodes)
+        return self.control_plane_nodes + self.worker_nodes
 
 
 class ClusterConfigBuilder:
@@ -156,7 +172,7 @@ class ClusterConfigBuilder:
         location: str = "nbg1",
         allow_scheduling: bool = False,
         labels: dict[str, str] | None = None,
-        taints: list[dict[str, str]] | None = None,
+        taints: list[TaintSpec] | None = None,
     ) -> "ClusterConfigBuilder":
         """Add a control plane node.
 
@@ -165,8 +181,8 @@ class ClusterConfigBuilder:
             server_type: Hetzner server type
             location: Hetzner datacenter location
             allow_scheduling: Allow pod scheduling on this node
-            labels: Kubernetes node labels
-            taints: Kubernetes node taints
+            labels: Kubernetes node labels (will be converted to immutable mapping)
+            taints: Kubernetes node taints (will be converted to immutable tuple)
 
         Returns:
             Self for chaining
@@ -174,7 +190,7 @@ class ClusterConfigBuilder:
 
         if len(self._control_plane_nodes) > 0:
             raise ValueError(
-                "Currently, only one control plane node is supported iœn this configuration"
+                "Currently, only one control plane node is supported in this configuration"
             )
 
         node = ControlPlaneNodeSpec(
@@ -182,8 +198,8 @@ class ClusterConfigBuilder:
             server_type=server_type,
             location=location,
             allow_scheduling=allow_scheduling,
-            labels=labels,
-            taints=taints,
+            labels=MappingProxyType(labels) if labels is not None else None,
+            taints=tuple(taints) if taints is not None else None,
         )
         self._control_plane_nodes.append(node)
         return self
@@ -191,10 +207,10 @@ class ClusterConfigBuilder:
     def add_worker(
         self,
         name: str,
-        server_type: str = "cpx22",
+        server_type: str = "cx33",
         location: str = "nbg1",
         labels: dict[str, str] | None = None,
-        taints: list[dict[str, str]] | None = None,
+        taints: list[TaintSpec] | None = None,
     ) -> "ClusterConfigBuilder":
         """Add a worker node.
 
@@ -212,8 +228,8 @@ class ClusterConfigBuilder:
             name=name,
             server_type=server_type,
             location=location,
-            labels=labels,
-            taints=taints,
+            labels=MappingProxyType(labels) if labels is not None else None,
+            taints=tuple(taints) if taints is not None else None,
         )
         self._worker_nodes.append(node)
         return self
@@ -238,8 +254,8 @@ class ClusterConfigBuilder:
 
         return ClusterConfig(
             cluster_name=self._cluster_name,
-            control_plane_nodes=self._control_plane_nodes,
-            worker_nodes=self._worker_nodes,
+            control_plane_nodes=tuple(self._control_plane_nodes),
+            worker_nodes=tuple(self._worker_nodes),
             talos_iso_id=self._talos_iso_id,
             talos_version=self._talos_version,
             installer_image=self._installer_image,

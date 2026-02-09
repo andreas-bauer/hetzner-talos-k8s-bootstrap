@@ -8,8 +8,8 @@ from config import (
     WorkerNodeSpec,
     load_ssh_public_key,
 )
-from infrastructure import provision_infrastructure
-from kubernetes import setup_kubernetes_access
+from infrastructure import InfrastructureOutputs, provision_infrastructure
+from kubernetes import KubernetesAccessOutputs, setup_kubernetes_access
 from local_files import save_cluster_configs
 from talos_cluster import setup_talos_cluster
 
@@ -63,10 +63,10 @@ class ClusterDeployer:
 
     def _export_outputs(
         self,
-        infra,
-        control_plane_ip,
-        worker_ips: list,
-        k8s_access,
+        infra: InfrastructureOutputs,
+        control_plane_ip: pulumi.Output[str],
+        worker_ips: list[pulumi.Output[str]],
+        k8s_access: KubernetesAccessOutputs,
     ) -> None:
         """Export all Pulumi stack outputs.
 
@@ -93,8 +93,8 @@ class ClusterDeployer:
 
         pulumi.export(
             "cluster_endpoint",
-            control_plane_ip.apply(
-                lambda ip: f"https://{ip}:{self.config.kubernetes_api_port}"
+            control_plane_ip.apply(  # ty: ignore[missing-argument]
+                lambda ip: f"https://{ip}:{self.config.kubernetes_api_port}"  # ty: ignore[invalid-argument-type]
             ),
         )
 
@@ -124,8 +124,9 @@ class ClusterDeployer:
         """
         return ",".join(ips)
 
-    @staticmethod
-    def _format_node_spec(node_spec: ControlPlaneNodeSpec | WorkerNodeSpec) -> dict:
+    def _format_node_spec(
+        self, node_spec: ControlPlaneNodeSpec | WorkerNodeSpec
+    ) -> dict:
         """Format node spec for export.
 
         Args:
@@ -135,14 +136,18 @@ class ClusterDeployer:
             Dict representation of node spec
         """
         spec = {
-            "name": f"pulumi-talos-k8s-{node_spec.name}",
+            "name": f"{self.config.cluster_name}-{node_spec.name}",
             "type": "controlplane"
             if isinstance(node_spec, ControlPlaneNodeSpec)
             else "worker",
             "server_type": node_spec.server_type,
             "location": node_spec.location,
-            "labels": node_spec.labels or {},
-            "taints": node_spec.taints or [],
+            "labels": dict(node_spec.labels) if node_spec.labels else {},
+            "taints": (
+                [{"key": t.key, "value": t.value, "effect": t.effect} for t in node_spec.taints]
+                if node_spec.taints
+                else []
+            ),
         }
         if isinstance(node_spec, ControlPlaneNodeSpec):
             spec["allow_scheduling"] = node_spec.allow_scheduling

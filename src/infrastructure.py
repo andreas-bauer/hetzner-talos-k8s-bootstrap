@@ -17,15 +17,15 @@ class InfrastructureOutputs:
         ssh_key: Hetzner SSH key resource
         node_servers: Map of node name to server resource
         node_waits: Map of node name to wait command
-        control_plane_nodes: List of control plane node specifications
-        worker_nodes: List of worker node specifications
+        control_plane_nodes: Tuple of control plane node specifications
+        worker_nodes: Tuple of worker node specifications
     """
 
     ssh_key: hcloud.SshKey
     node_servers: dict[str, hcloud.Server]
     node_waits: dict[str, local.Command]
-    control_plane_nodes: list[ControlPlaneNodeSpec]
-    worker_nodes: list[WorkerNodeSpec]
+    control_plane_nodes: tuple[ControlPlaneNodeSpec, ...]
+    worker_nodes: tuple[WorkerNodeSpec, ...]
 
 
 def create_ssh_key(ssh_public_key: str) -> hcloud.SshKey:
@@ -61,7 +61,7 @@ def create_server(
     """
     return hcloud.Server(
         f"talos-{node_spec.name}",
-        name=f"pulumi-talos-k8s-{node_spec.name}",
+        name=f"{config.cluster_name}-{node_spec.name}",
         server_type=node_spec.server_type,
         location=node_spec.location,
         ssh_keys=[ssh_key.id],
