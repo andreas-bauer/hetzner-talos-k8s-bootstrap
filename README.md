@@ -29,17 +29,35 @@ Deploy a multi-node Talos Linux Kubernetes cluster on Hetzner Cloud using Pulumi
 
 ## Setup
 
-1. **Create a secret for Hetzner Cloud in Pulumi**
+1. **Login to Pulumi**
+   ```bash
+   pulumi login
+   ```
+
+2. **Initialize or select a stack**
+   ```bash
+   pulumi stack init dev
+   # or select existing: pulumi stack select dev
+   ```
+
+3. **Install Python dependencies**
+   ```bash
+   uv sync
+   ```
+
+4. **Get your Hetzner Cloud API token** from [console.hetzner.cloud](https://console.hetzner.cloud/) → Security → API Tokens (Read & Write permissions)
+
+5. **Configure the Hetzner token**
    ```bash
    pulumi config set hcloud:token YOUR_HETZNER_TOKEN --secret
    ```
 
-2. **Create an SSH key** (used for potential rescue mode operations)
+6. **Create an SSH key** (used for potential rescue mode operations)
    ```bash
    ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_hetzner_pulumi -C "YOUR_EMAIL"
    ```
 
-3. **Edit the config** at `src/config.py`, e.g., how many worker nodes you want
+7. **Edit the config** at `src/config.py`, e.g., how many worker nodes you want
 
 ## Use
 
