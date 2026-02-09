@@ -155,6 +155,17 @@ class ClusterConfigBuilder:
         )
         return self
 
+    def _check_duplicate_name(self, name: str) -> None:
+        """Raise ValueError if a node with this name already exists."""
+        existing = {n.name for n in self._control_plane_nodes} | {
+            n.name for n in self._worker_nodes
+        }
+        if name in existing:
+            raise ValueError(
+                f"Duplicate node name '{name}': node names must be unique across "
+                "all control plane and worker nodes"
+            )
+
     def add_control_plane(
         self,
         name: str,
@@ -182,6 +193,8 @@ class ClusterConfigBuilder:
             raise ValueError(
                 "Currently, only one control plane node is supported in this configuration"
             )
+
+        self._check_duplicate_name(name)
 
         node = ControlPlaneNodeSpec(
             name=name,
@@ -214,6 +227,8 @@ class ClusterConfigBuilder:
         Returns:
             Self for chaining
         """
+        self._check_duplicate_name(name)
+
         node = WorkerNodeSpec(
             name=name,
             server_type=server_type,
