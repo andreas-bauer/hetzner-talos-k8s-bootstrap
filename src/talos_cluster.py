@@ -67,12 +67,15 @@ def _create_base_machine_patch(config: ClusterConfig, node_spec: BaseNodeSpec) -
     }
 
     if node_spec.labels:
-        patch["machine"]["kubelet"] = {"nodeLabels": node_spec.labels}
+        patch["machine"]["kubelet"] = {"nodeLabels": dict(node_spec.labels)}
 
     if node_spec.taints:
         if "kubelet" not in patch["machine"]:
             patch["machine"]["kubelet"] = {}
-        patch["machine"]["kubelet"]["nodeTaints"] = node_spec.taints
+        patch["machine"]["kubelet"]["nodeTaints"] = [
+            {"key": t.key, "value": t.value, "effect": t.effect}
+            for t in node_spec.taints
+        ]
 
     return patch
 
@@ -264,7 +267,7 @@ def setup_talos_cluster(
     control_plane_wait: local.Command,
     worker_waits: list[local.Command],
     cp_node_spec: ControlPlaneNodeSpec,
-    worker_specs: list[WorkerNodeSpec],
+    worker_specs: tuple[WorkerNodeSpec, ...],
 ) -> TalosOutputs:
     """Set up complete Talos cluster.
 
