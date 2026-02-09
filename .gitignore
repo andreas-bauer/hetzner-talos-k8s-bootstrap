@@ -1,2 +1,21 @@
+# Python
 *.pyc
+__pycache__/
+.venv/
 venv/
+
+# Pulumi stack configs (contain secrets)
+Pulumi.*.yaml
+
+# Talos and Kubernetes configs (generated, contain cluster access)
+.talos/
+.kube/
+talosconfig
+kubeconfig
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+
+# OS
+.DS_Store
