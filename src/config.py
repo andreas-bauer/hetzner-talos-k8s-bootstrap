@@ -94,7 +94,7 @@ class ClusterConfigBuilder:
         self._cluster_name = "hetzner-k8s"
         self._control_plane_nodes: list[ControlPlaneNodeSpec] = []
         self._worker_nodes: list[WorkerNodeSpec] = []
-        self._talos_iso_id = "122630"
+        self._talos_iso_id = "122630"  # Talos Linux 1.11.2 (x86/amd64 with Hetzner + qemu-guest-agent)
         self._talos_version = "v1.11.2"
         self._installer_image = f"ghcr.io/siderolabs/installer:{self._talos_version}"
         self._install_disk = "/dev/sda"
@@ -114,19 +114,6 @@ class ClusterConfigBuilder:
             Self for chaining
         """
         self._cluster_name = name
-        return self
-
-    def with_talos_version(self, version: str) -> "ClusterConfigBuilder":
-        """Set the Talos version and update installer image.
-
-        Args:
-            version: Talos version (e.g., 'v1.11.2')
-
-        Returns:
-            Self for chaining
-        """
-        self._talos_version = version
-        self._installer_image = f"ghcr.io/siderolabs/installer:{version}"
         return self
 
     def with_ssh_key_path(self, path: Path | str) -> "ClusterConfigBuilder":
