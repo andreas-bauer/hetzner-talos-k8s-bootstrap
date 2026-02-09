@@ -144,7 +144,10 @@ class ClusterDeployer:
             "location": node_spec.location,
             "labels": dict(node_spec.labels) if node_spec.labels else {},
             "taints": (
-                [{"key": t.key, "value": t.value, "effect": t.effect} for t in node_spec.taints]
+                [
+                    {"key": t.key, "value": t.value, "effect": t.effect}
+                    for t in node_spec.taints
+                ]
                 if node_spec.taints
                 else []
             ),

@@ -94,7 +94,9 @@ class ClusterConfigBuilder:
         self._cluster_name = "hetzner-k8s"
         self._control_plane_nodes: list[ControlPlaneNodeSpec] = []
         self._worker_nodes: list[WorkerNodeSpec] = []
-        self._talos_iso_id = "122630"  # Talos Linux 1.11.2 (x86/amd64 with Hetzner + qemu-guest-agent)
+        self._talos_iso_id = (
+            "122630"  # Talos Linux 1.11.2 (x86/amd64 with Hetzner + qemu-guest-agent)
+        )
         self._talos_version = "v1.11.2"
         self._installer_image = f"ghcr.io/siderolabs/installer:{self._talos_version}"
         self._install_disk = "/dev/sda"
