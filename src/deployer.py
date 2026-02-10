@@ -11,7 +11,7 @@ from config import (
 from infrastructure import InfrastructureOutputs, provision_infrastructure
 from kubernetes import KubernetesAccessOutputs, setup_kubernetes_access
 from local_files import save_cluster_configs
-from talos_cluster import setup_talos_cluster
+from talos_cluster import _build_cluster_endpoint, setup_talos_cluster
 
 
 class ClusterDeployer:
@@ -94,7 +94,7 @@ class ClusterDeployer:
         pulumi.export(
             "cluster_endpoint",
             control_plane_ip.apply(  # ty: ignore[missing-argument]
-                lambda ip: f"https://{ip}:{self.config.kubernetes_api_port}"  # ty: ignore[invalid-argument-type]
+                lambda ip: _build_cluster_endpoint(ip, self.config.kubernetes_api_port)  # ty: ignore[invalid-argument-type]
             ),
         )
 
