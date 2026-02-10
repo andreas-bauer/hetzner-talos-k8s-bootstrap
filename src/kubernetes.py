@@ -60,11 +60,8 @@ def generate_talosconfig(
         Talosconfig as Pulumi Output
     """
 
-    def aggregate_ips(*ips: str) -> list[str]:
-        return list(ips)
-
     nodes: pulumi.Output[list[str]] = pulumi.Output.all(*all_node_ips).apply(  # ty: ignore[missing-argument]
-        lambda ips: aggregate_ips(*ips)  # ty: ignore[invalid-argument-type]
+        lambda ips: list(ips)  # ty: ignore[invalid-argument-type]
     )
     # Endpoints should only be control plane nodes (first IP in list)
     # to avoid "no request forwarding" errors
