@@ -237,29 +237,6 @@ def apply_configuration_to_node(
     )
 
 
-def bootstrap_cluster(
-    secrets: talos.machine.Secrets,
-    server_ip: pulumi.Output[str],
-    config_apply: talos.machine.ConfigurationApply,
-) -> talos.machine.Bootstrap:
-    """Bootstrap Talos Kubernetes cluster.
-
-    Args:
-        secrets: Talos machine secrets
-        server_ip: Server IP address
-        config_apply: Configuration apply resource to depend on
-
-    Returns:
-        Bootstrap resource
-    """
-    return talos.machine.Bootstrap(
-        "talos-bootstrap",
-        node=server_ip,
-        client_configuration=secrets.client_configuration,
-        opts=pulumi.ResourceOptions(depends_on=[config_apply]),
-    )
-
-
 def setup_talos_cluster(
     config: ClusterConfig,
     control_plane_ip: pulumi.Output[str],
