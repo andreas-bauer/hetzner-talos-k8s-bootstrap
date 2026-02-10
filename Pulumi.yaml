@@ -1,5 +1,5 @@
-name: pulumi-hetzner-k8s-demo
-description: Creating a HA k8s instance on hetzner for demonistration purposes
+name: hetzner-talos-k8s-bootstrap
+description: Bootstrapping a talos-based k8s instance on Hetzner cloud
 runtime:
   name: python
   options:
