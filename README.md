@@ -1,4 +1,4 @@
-# Talos Linux Kubernetes on Hetzner Cloud with Pulumi
+# Talos Linux Kubernetes on Hetzner Cloud
 
 Deploy a multi-node Talos Linux Kubernetes cluster on Hetzner Cloud using Pulumi.
 
@@ -15,7 +15,7 @@ Deploy a multi-node Talos Linux Kubernetes cluster on Hetzner Cloud using Pulumi
 - **Pulumi (Python):** Infrastructure-as-code with real programming languages instead of YAML templates
 - **Multi-node Architecture:** Demonstrates real-world cluster patterns with single-node control plane and multiple worker nodes
 
-> **⚠️ EDUCATIONAL PURPOSE ONLY**
+> **⚠️  EDUCATIONAL PURPOSE ONLY**
 >
 > This repository is designed for learning and demonstration purposes. It is **not production-ready** and requires additional hardening and configuration for production use. See [Production Considerations](#production-considerations) for what would need to be added.
 
